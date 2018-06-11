@@ -10,3 +10,4 @@ case class DrugsFindRq (
 )
 
 case class DrugsAdminRq (drugsFullName: String)
+case class UpsertRes (ok:Int = 0, upserted: Int = 0, modified: Int = 0, errors: Int = 0)

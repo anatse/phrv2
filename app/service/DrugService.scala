@@ -1,10 +1,13 @@
 package service
 
+import com.google.inject.ImplementedBy
 import model._
 import reactivemongo.api.commands.{UpdateWriteResult, WriteResult}
+import service.impl.DrugServiceImpl
 
 import scala.concurrent.Future
 
+@ImplementedBy(classOf[DrugServiceImpl])
 trait DrugService {
   def getAll(dp:DrugsAdminRq): Future[List[DrugsProduct]]
 

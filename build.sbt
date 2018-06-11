@@ -19,22 +19,25 @@ lazy val root = (project in file("."))
       ehcache,
 
       // mongoDB
-      "org.reactivemongo" %% "play2-reactivemongo" % "0.12.7-play26",
+      "org.reactivemongo" %% "play2-reactivemongo" % "0.13.0-play26",
 
       /*
        * Authorization library silhouette
        */
-//      "com.mohiva" %% "play-silhouette" % silhouetteVersion exclude ("com.atlassian.jwt", "jwt-api") exclude ("com.atlassian.jwt", "jwt-core"),
-//      "com.mohiva" %% "play-silhouette-password-bcrypt" % silhouetteVersion,
-//      "com.mohiva" %% "play-silhouette-persistence" % silhouetteVersion,
-//      "com.mohiva" %% "play-silhouette-crypto-jca" % silhouetteVersion,
+      "com.mohiva" %% "play-silhouette" % silhouetteVersion exclude ("com.atlassian.jwt", "jwt-api") exclude ("com.atlassian.jwt", "jwt-core"),
+      "com.mohiva" %% "play-silhouette-password-bcrypt" % silhouetteVersion,
+      "com.mohiva" %% "play-silhouette-persistence" % silhouetteVersion,
+      "com.mohiva" %% "play-silhouette-crypto-jca" % silhouetteVersion,
+
+      "net.codingwell" %% "scala-guice" % "4.+",
+      "com.iheart" %% "ficus" % "1.4.3",
+      "com.nimbusds" % "nimbus-jose-jwt" % "5.11",
 
       /*
        * json library
        */
       "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion,
       "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonVersion,
-
 
       "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
       specs2 % Test
