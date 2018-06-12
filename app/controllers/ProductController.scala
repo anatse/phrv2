@@ -1,17 +1,19 @@
 package controllers
 
+import com.mohiva.play.silhouette.api.util.Credentials
 import com.mohiva.play.silhouette.api.{Environment, Silhouette}
 import javax.inject.{Inject, Singleton}
 import model._
 import model.security.JWTEnv
 import play.api.libs.json.Json
 import play.api.mvc.{AbstractController, ControllerComponents}
+import play.core.parsers.Multipart
 import service.DrugService
 import service.security.WithRoles
 import utils.{JsonUtil, PhrLogger}
 
 import scala.util.{Failure, Success, Try}
-import scala.io.{Source}
+import scala.io.Source
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
@@ -38,6 +40,11 @@ class ProductController @Inject()(
 
   def initDB = Action.async {
     drugsService.createTextIndex().map(_ => Ok("OK"))
+  }
+
+  def auth(userName: String, password: String) = Action.async { implicit request =>
+    val credentials = Credentials(userName, password)
+    Future.successful(Ok("ok"))
   }
 
   def loadProducts = silhouette.SecuredAction(WithRoles("ADMIN"))(parse.multipartFormData).async { implicit request =>
