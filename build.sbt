@@ -39,6 +39,8 @@ lazy val root = (project in file("."))
       "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion,
       "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonVersion,
 
+      "de.flapdoodle.embed" % "de.flapdoodle.embed.mongo" % "2.0.0" % Test,
+      "com.mohiva" %% "play-silhouette-testkit" % silhouetteVersion % "test",
       "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
       specs2 % Test
     )

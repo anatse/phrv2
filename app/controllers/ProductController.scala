@@ -1,26 +1,34 @@
 package controllers
 
-import com.mohiva.play.silhouette.api.util.Credentials
-import com.mohiva.play.silhouette.api.{Environment, Silhouette}
+import com.mohiva.play.silhouette.api.exceptions.ProviderException
+import com.mohiva.play.silhouette.api.util.{Clock, Credentials}
+import com.mohiva.play.silhouette.api.{Environment, LoginEvent, Silhouette}
+import com.mohiva.play.silhouette.impl.exceptions.IdentityNotFoundException
+import com.mohiva.play.silhouette.impl.providers.CredentialsProvider
 import javax.inject.{Inject, Singleton}
 import model._
 import model.security.JWTEnv
+import play.api.i18n.Messages
 import play.api.libs.json.Json
 import play.api.mvc.{AbstractController, ControllerComponents}
 import play.core.parsers.Multipart
-import service.DrugService
-import service.security.WithRoles
+import service.{DrugService, PhrUserService}
+import service.security.{PhrIdentityService, WithRoles}
 import utils.{JsonUtil, PhrLogger}
 
+import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 import scala.io.Source
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
 class ProductController @Inject()(
-  cc: ControllerComponents,
-  drugsService: DrugService,
-  silhouette: Silhouette[JWTEnv])
+   cc: ControllerComponents,
+   drugsService: DrugService,
+   silhouette: Silhouette[JWTEnv],
+   credentialsProvider: CredentialsProvider,
+   userService: PhrIdentityService,
+   clock: Clock)
   (implicit ex: ExecutionContext) extends AbstractController(cc) with PhrLogger {
 
   import model.ModelImplicits._
@@ -42,9 +50,20 @@ class ProductController @Inject()(
     drugsService.createTextIndex().map(_ => Ok("OK"))
   }
 
-  def auth(userName: String, password: String) = Action.async { implicit request =>
+  def auth(userName: String, password: String) = silhouette.UnsecuredAction.async { implicit request =>
     val credentials = Credentials(userName, password)
-    Future.successful(Ok("ok"))
+    val auth = credentialsProvider.authenticate(credentials)
+    auth.flatMap { loginInfo =>
+      userService.retrieve(loginInfo).flatMap {
+        case Some(user) =>
+          Future.successful(Ok("logged"))
+        case None => Future.failed(new IdentityNotFoundException("Couldn't find user"))
+      }
+    }.recover {
+      case ex: ProviderException =>
+        ex.printStackTrace()
+        Unauthorized("error: invalid.credentials")
+    }
   }
 
   def loadProducts = silhouette.SecuredAction(WithRoles("ADMIN"))(parse.multipartFormData).async { implicit request =>

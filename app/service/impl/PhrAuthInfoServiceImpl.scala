@@ -1,6 +1,6 @@
 package service.impl
 
-import com.google.inject.Inject
+import com.google.inject.{ImplementedBy, Inject}
 import com.mohiva.play.silhouette.api.LoginInfo
 import com.mohiva.play.silhouette.api.util.PasswordInfo
 import com.mohiva.play.silhouette.persistence.daos.DelegableAuthInfoDAO
@@ -11,8 +11,11 @@ import utils.PhrLogger
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@ImplementedBy(classOf[PhrAuthInfoServiceImpl])
+trait PhrAuthInfoService extends DelegableAuthInfoDAO[PasswordInfo]
+
 class PhrAuthInfoServiceImpl @Inject() (val mongoApi: ReactiveMongoApi, implicit val ex: ExecutionContext)
-  extends DelegableAuthInfoDAO[PasswordInfo] with PhrLogger {
+  extends PhrAuthInfoService with PhrLogger {
 
   /**
   * Collection to stored password info - pwdinfo
