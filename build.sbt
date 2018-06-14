@@ -12,6 +12,9 @@ val jacksonVersion = "2.+"
 lazy val root = (project in file("."))
   .settings (
     scalaVersion := "2.12.6",
+    resolvers ++= Seq (
+      "Atlassian Releases" at "https://maven.atlassian.com/public/"
+    ),
     libraryDependencies ++= Seq (
       guice,
       filters,
@@ -25,6 +28,8 @@ lazy val root = (project in file("."))
        * Authorization library silhouette
        */
       "com.mohiva" %% "play-silhouette" % silhouetteVersion exclude ("com.atlassian.jwt", "jwt-api") exclude ("com.atlassian.jwt", "jwt-core"),
+      "com.atlassian.jwt" % "jwt-core" % "1.6.2",
+      "com.atlassian.jwt" % "jwt-api" % "1.6.2",
       "com.mohiva" %% "play-silhouette-password-bcrypt" % silhouetteVersion,
       "com.mohiva" %% "play-silhouette-persistence" % silhouetteVersion,
       "com.mohiva" %% "play-silhouette-crypto-jca" % silhouetteVersion,

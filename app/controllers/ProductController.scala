@@ -1,10 +1,13 @@
 package controllers
 
 import com.mohiva.play.silhouette.api.exceptions.ProviderException
+import com.mohiva.play.silhouette.api.services.AuthenticatorService
 import com.mohiva.play.silhouette.api.util.{Clock, Credentials}
-import com.mohiva.play.silhouette.api.{Environment, LoginEvent, Silhouette}
+import com.mohiva.play.silhouette.api._
+import com.mohiva.play.silhouette.impl.authenticators.JWTAuthenticator
 import com.mohiva.play.silhouette.impl.exceptions.IdentityNotFoundException
 import com.mohiva.play.silhouette.impl.providers.CredentialsProvider
+import com.nimbusds.jose.crypto.MACVerifier
 import javax.inject.{Inject, Singleton}
 import model._
 import model.security.JWTEnv
@@ -28,6 +31,8 @@ class ProductController @Inject()(
    silhouette: Silhouette[JWTEnv],
    credentialsProvider: CredentialsProvider,
    userService: PhrIdentityService,
+   authenticatorService: AuthenticatorService[JWTAuthenticator],
+   eventBus: EventBus,
    clock: Clock)
   (implicit ex: ExecutionContext) extends AbstractController(cc) with PhrLogger {
 
@@ -55,8 +60,20 @@ class ProductController @Inject()(
     val auth = credentialsProvider.authenticate(credentials)
     auth.flatMap { loginInfo =>
       userService.retrieve(loginInfo).flatMap {
-        case Some(user) =>
-          Future.successful(Ok("logged"))
+        case Some(user) => authenticatorService.create(loginInfo).map { authenticator =>
+          authenticator
+        }.flatMap {
+          authenticator => {
+            eventBus.publish(LoginEvent(user, request))
+            authenticatorService.init(authenticator).map {
+              token =>
+//                JWTAuthenticator.unserialize()
+                Ok(Json.obj("token" -> token))
+
+            }
+          }
+        }
+
         case None => Future.failed(new IdentityNotFoundException("Couldn't find user"))
       }
     }.recover {
@@ -66,7 +83,16 @@ class ProductController @Inject()(
     }
   }
 
-  def loadProducts = silhouette.SecuredAction(WithRoles("ADMIN"))(parse.multipartFormData).async { implicit request =>
+  def loadProducts = Action.async { implicit request =>
+    silhouette.SecuredRequestHandler { securedRequest =>
+      Future.successful(HandlerResult(Ok, Some(securedRequest.identity)))
+    }.map {
+      case HandlerResult(r, Some(user)) => Ok("OK")
+      case HandlerResult(r, None) => Unauthorized
+    }
+  }
+
+  def loadProducts1 = silhouette.SecuredAction(WithRoles("ADMIN"))(parse.multipartFormData).async { implicit request =>
     val drugsToSave = Try[List[DrugsProduct]] (request.body.file("fileinfo").map { picture =>
       val filename = picture.filename
       val fileText = Source.fromFile(picture.ref.path.toString, "utf-8").mkString

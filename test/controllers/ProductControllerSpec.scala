@@ -6,23 +6,21 @@ import java.util.UUID
 
 import akka.stream.scaladsl._
 import akka.util.ByteString
-import com.google.inject.AbstractModule
-import com.mohiva.play.silhouette.api.util.{PasswordHasherRegistry, PasswordInfo}
-import com.mohiva.play.silhouette.api.{Environment, LoginInfo}
-import com.mohiva.play.silhouette.persistence.daos.DelegableAuthInfoDAO
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.mohiva.play.silhouette.api.LoginInfo
+import com.mohiva.play.silhouette.api.util.PasswordHasherRegistry
 import com.typesafe.config.ConfigFactory
 import emb.EmbeddedMongo
-import model.security.{JWTEnv, PhrUser}
-import com.mohiva.play.silhouette.test._
-import net.codingwell.scalaguice.ScalaModule
+import model.security.PhrUser
 import org.scalatestplus.play._
 import org.scalatestplus.play.guice.GuiceOneServerPerSuite
-import play.api.{Application, Configuration}
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 import play.api.test.Helpers._
 import play.api.test._
+import play.api.{Application, Configuration}
 import service.impl.PhrAuthInfoService
 import service.security.PhrIdentityService
 
@@ -30,11 +28,10 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class ProductControllerSpec extends PlaySpec with GuiceOneServerPerSuite with Injecting {
-  import scala.concurrent.ExecutionContext.Implicits.global
 
   val identity = PhrUser(
     userID = UUID.randomUUID(),
-    providerID = Some("local-store-provider"),
+    providerID = Some("credentials"),
     providerKey = Some("demo"),
     firstName = None,
     lastName = None,
@@ -44,22 +41,13 @@ class ProductControllerSpec extends PlaySpec with GuiceOneServerPerSuite with In
     activated = true,
     roles = Some(Array("ADMIN")))
 
-  val li = LoginInfo (identity.providerID.get, identity.providerKey.get)
-  implicit val env = new FakeEnvironment[JWTEnv](Seq(li -> identity))
-  class FakeModule extends AbstractModule with ScalaModule {
-    override def configure() = {
-      bind[Environment[JWTEnv]].toInstance(env)
-    }
-  }
-
-  // Create application object with test config
-  implicit override lazy val app: Application = new GuiceApplicationBuilder().
-    overrides(new FakeModule).
-      loadConfig(conf = {
-        val testConfig = ConfigFactory.load("application.test.conf")
-        Configuration(testConfig)
-      }).
-      build()
+    override def fakeApplication(): Application =
+      new GuiceApplicationBuilder()
+        .loadConfig(conf = {
+            val testConfig = ConfigFactory.load("application.test.conf")
+            Configuration(testConfig)
+          })
+        .build()
 
   // Start embedded mongo
   println ("mongo starting...")
@@ -87,14 +75,30 @@ class ProductControllerSpec extends PlaySpec with GuiceOneServerPerSuite with In
       val passwordFuture = authInfo.add(LoginInfo(savedUser.providerID.get, savedUser.providerKey.get), passwordInfo)
       val savedPwdInfo = Await.result(passwordFuture, 1 second)
 
-      savedPwdInfo.password mustNot be null
+      savedPwdInfo.password mustNot be (null)
     }
   }
 
+  val mapper = new ObjectMapper()
+  mapper.registerModule(DefaultScalaModule)
+  val url = s"http://localhost:${Helpers.testServerPort}"
+  var jwtToken:String = _
+
   "ProductController" must {
+    val wsClient = inject[WSClient]
+
     "authorize user using credentials" in {
-      val controller = inject[ProductController]
-      val auth = controller.auth("demo", "123456").apply(FakeRequest(GET, "/auth"))
+      val responseFuture = wsClient.url(s"$url/auth")
+        .addQueryStringParameters("userName" -> "demo", "password" -> "123456")
+        .get()
+
+      val response = await(responseFuture)
+      response.status mustBe OK
+
+      val json = mapper.readValue(response.body, classOf[Map[String, String]])
+      json.contains("token") mustBe true
+
+      jwtToken = json("token")
     }
 
     "upload a file successfully" in {
@@ -107,9 +111,7 @@ class ProductControllerSpec extends PlaySpec with GuiceOneServerPerSuite with In
 
       Files.write(tmpFile.toPath, msg.getBytes())
 
-      val url = s"http://localhost:${Helpers.testServerPort}/goods/upload"
-
-      val responseFuture = inject[WSClient].url(url).withHttpHeaders("X-Auth-Token" -> "lkk").post(postSource(tmpFile))
+      val responseFuture = wsClient.url(s"$url/goods/upload").withHttpHeaders("X-Auth-Token" -> jwtToken).post(postSource(tmpFile))
       val response = await(responseFuture)
       response.status mustBe OK
       response.body mustBe "file size = 11"
