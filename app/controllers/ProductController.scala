@@ -1,28 +1,25 @@
 package controllers
 
-import com.mohiva.play.silhouette.api.exceptions.ProviderException
-import com.mohiva.play.silhouette.api.services.AuthenticatorService
-import com.mohiva.play.silhouette.api.util.{Clock, Credentials}
+import java.nio.file.{Files, Paths, StandardCopyOption}
+
 import com.mohiva.play.silhouette.api._
+import com.mohiva.play.silhouette.api.services.AuthenticatorService
+import com.mohiva.play.silhouette.api.util.Clock
 import com.mohiva.play.silhouette.impl.authenticators.JWTAuthenticator
-import com.mohiva.play.silhouette.impl.exceptions.IdentityNotFoundException
 import com.mohiva.play.silhouette.impl.providers.CredentialsProvider
-import com.nimbusds.jose.crypto.MACVerifier
 import javax.inject.{Inject, Singleton}
 import model._
 import model.security.JWTEnv
-import play.api.i18n.Messages
+import play.api.Configuration
 import play.api.libs.json.Json
 import play.api.mvc.{AbstractController, ControllerComponents}
-import play.core.parsers.Multipart
-import service.{DrugService, PhrUserService}
+import service.DrugService
 import service.security.{PhrIdentityService, WithRoles}
-import utils.{JsonUtil, PhrLogger}
+import utils.{FileUtils, JsonUtil, PhrLogger}
 
-import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Success, Try}
-import scala.io.Source
 import scala.concurrent.{ExecutionContext, Future}
+import scala.io.Source
+import scala.util.{Failure, Success, Try}
 
 @Singleton
 class ProductController @Inject()(
@@ -33,66 +30,24 @@ class ProductController @Inject()(
    userService: PhrIdentityService,
    authenticatorService: AuthenticatorService[JWTAuthenticator],
    eventBus: EventBus,
-   clock: Clock)
+   clock: Clock,
+   configuration: Configuration,
+   assetsFinder: AssetsFinder,
+   assets: Assets)
   (implicit ex: ExecutionContext) extends AbstractController(cc) with PhrLogger {
 
   import model.ModelImplicits._
-
-  def combinedSearchDrugsProducts = Action(parse.json[DrugsFindRq]).async { implicit request =>
-    val find = request.body
-    find.text match {
-      case Some(text) => drugsService.combinedSearch(find.copy(pageSize = find.pageSize + 1)).map (
-        rows => makeResult(rows, find.pageSize, find.offset)
-      )
-
-      case _ => drugsService.findAll(None, find.offset, find.pageSize).map (
-        rows => makeResult(rows, find.pageSize, find.offset)
-      )
-    }
-  }
 
   def initDB = Action.async {
     drugsService.createTextIndex().map(_ => Ok("OK"))
   }
 
-  def auth(userName: String, password: String) = silhouette.UnsecuredAction.async { implicit request =>
-    val credentials = Credentials(userName, password)
-    val auth = credentialsProvider.authenticate(credentials)
-    auth.flatMap { loginInfo =>
-      userService.retrieve(loginInfo).flatMap {
-        case Some(user) => authenticatorService.create(loginInfo).map { authenticator =>
-          authenticator
-        }.flatMap {
-          authenticator => {
-            eventBus.publish(LoginEvent(user, request))
-            authenticatorService.init(authenticator).map {
-              token =>
-//                JWTAuthenticator.unserialize()
-                Ok(Json.obj("token" -> token))
-
-            }
-          }
-        }
-
-        case None => Future.failed(new IdentityNotFoundException("Couldn't find user"))
-      }
-    }.recover {
-      case ex: ProviderException =>
-        ex.printStackTrace()
-        Unauthorized("error: invalid.credentials")
-    }
-  }
-
-  def loadProducts = Action.async { implicit request =>
-    silhouette.SecuredRequestHandler { securedRequest =>
-      Future.successful(HandlerResult(Ok, Some(securedRequest.identity)))
-    }.map {
-      case HandlerResult(r, Some(user)) => Ok("OK")
-      case HandlerResult(r, None) => Unauthorized
-    }
-  }
-
-  def loadProducts1 = silhouette.SecuredAction(WithRoles("ADMIN"))(parse.multipartFormData).async { implicit request =>
+  /**
+    * Service load products from JSON file
+    *
+    * @return information about operation
+    */
+  def loadProducts = silhouette.SecuredAction(WithRoles(Roles.ADMIN_ROLE))(parse.multipartFormData).async { implicit request =>
     val drugsToSave = Try[List[DrugsProduct]] (request.body.file("fileinfo").map { picture =>
       val filename = picture.filename
       val fileText = Source.fromFile(picture.ref.path.toString, "utf-8").mkString
@@ -141,6 +96,58 @@ class ProductController @Inject()(
         logger.error(e.getMessage, e)
         Future.successful(BadRequest(s"Error occured: ${e.getMessage}/${e.getCause}"))
     }
+  }
+
+  def setImageToDrug(drugId: String) = silhouette.SecuredAction(WithRoles(Roles.ADMIN_ROLE))(parse.multipartFormData).async { implicit request =>
+    val imagesFolder = configuration.get[String]("images.folder")
+    val imagesBaseUrl = configuration.get[String]("images.baseUrl")
+    request.body.file("image") match {
+      case Some(file) =>
+        val ext = FileUtils.extractExt(file.filename)
+        Files.move(file.ref.path, Paths.get (s"$imagesFolder/$drugId${ext}"), StandardCopyOption.REPLACE_EXISTING)
+        // Update drug information
+        drugsService.addImage(drugId, s"$imagesBaseUrl/$drugId${ext}").map {
+          row => Ok(Json.obj("res" -> row))
+        }.recover {
+          case ex => logger.error("Error setting image", ex)
+            BadRequest(s"Error occured: ${ex.getMessage}/${ex.getCause}")
+        }
+
+      case _ => Future.successful(BadRequest("File not provided"))
+    }
+  }
+
+  /**
+    * Service searching drugs
+    * @return found drugs
+    */
+  def combinedSearchDrugsProducts= Action(parse.json[DrugsFindRq]).async { implicit request =>
+    val find = request.body
+    find.text match {
+      case Some(text) => drugsService.combinedSearch(find.copy(pageSize = find.pageSize + 1)).map (
+        rows => makeResult(rows, find.pageSize, find.offset)
+      )
+
+      case _ => drugsService.findAll(None, find.offset, find.pageSize).map (
+        rows => makeResult(rows, find.pageSize, find.offset)
+      )
+    }
+  }
+
+  def filterProducts= silhouette.SecuredAction(WithRoles(Roles.ADMIN_ROLE))(parse.json[DrugsAdminRq]).async { implicit request =>
+    drugsService.getAll(request.body).map (rows => Ok(Json.obj("rows" -> rows)))
+  }
+
+  def findRecommended = silhouette.UserAwareAction.async { implicit request =>
+    drugsService.findRecommended.map(rows => Ok(Json.obj("rows" -> rows)))
+  }
+
+  def addRecommended (drugId: String, orderNum: Int) = silhouette.SecuredAction(WithRoles(Roles.ADMIN_ROLE)).async {
+    request => drugsService.addRecommended(drugId, orderNum).map(_ => Ok("OK"))
+  }
+
+  def removeRecommended (drugId: String)  = silhouette.SecuredAction(WithRoles(Roles.ADMIN_ROLE)).async {
+    request => drugsService.removeRecommended(drugId).map(_ => Ok("OK"))
   }
 }
 

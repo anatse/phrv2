@@ -6,10 +6,10 @@ import play.api.cache.{NamedCache, SyncCacheApi}
 import play.modules.reactivemongo.ReactiveMongoApi
 import reactivemongo.api.QueryOpts
 import reactivemongo.api.collections.bson.BSONCollection
-import reactivemongo.api.commands.{UpdateCommand, UpdateWriteResult, WriteResult}
+import reactivemongo.api.commands.UpdateWriteResult
 import reactivemongo.api.indexes.Index
 import reactivemongo.api.indexes.IndexType.Text
-import reactivemongo.bson.{BSONArray, BSONDocument, BSONDocumentReader, BSONDocumentWriter, BSONElement, BSONValue, Macros, Producer, document}
+import reactivemongo.bson.{BSONArray, BSONDocumentReader, BSONDocumentWriter, BSONValue, Macros, document}
 import service.DrugService
 
 import scala.concurrent.{ExecutionContext, Future}

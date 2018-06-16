@@ -3,6 +3,7 @@ package service.security
 import java.util.UUID
 
 import com.google.inject.ImplementedBy
+import com.mohiva.play.silhouette.api.LoginInfo
 import com.mohiva.play.silhouette.api.services.IdentityService
 import com.mohiva.play.silhouette.impl.providers.CommonSocialProfile
 import model.security.PhrUser
@@ -37,4 +38,11 @@ trait PhrIdentityService extends IdentityService[PhrUser] {
     * @return The user for whom the profile was saved.
     */
   def save(profile: CommonSocialProfile): Future[PhrUser]
+
+  /**
+    * Retrieves user that matches the specified name
+    * @param loginInfo The login info contained name to retrieve a user
+    * @return The retrieved user or None if no user could be retrieved for the given  name
+    */
+  def retrieveByName(loginInfo: LoginInfo) : Future[Option[PhrUser]]
 }

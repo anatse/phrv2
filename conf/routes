@@ -5,10 +5,30 @@
 
 # An example controller showing a sample home page
 GET     /                               controllers.HomeController.index
-POST    /drugs/fuzzySearch              controllers.ProductController.combinedSearchDrugsProducts
+
+# Authenticate user. Service give JWT token in response
+GET     /auth                           controllers.SecurityController.auth(userName: String, password: String)
+# Register user
+GET     /register                       controllers.SecurityController.register(userName: String, password: String, email: String, firstName: Option[String], lastName: Option[String], fullName: Option[String], avatarUrl: Option[String])
+# Add roles to specified user. Roles provides by post content in the following JSON format - ["ROLE_NAME_2", ROLE_NAME_2, ...]
+POST    /user/:userName/roles           controllers.SecurityController.setRolesToUser(userName: String)
+# Service muste be called only once to initially construct database indexes
 POST    /initdb                         controllers.ProductController.initDB
+
+# Service using to fill database with products. Products updated by uploading JSON file
 POST    /goods/upload                   controllers.ProductController.loadProducts
-GET     /auth                           controllers.ProductController.auth(userName: String, password: String)
+# Service sets image to drug
+POST    /drugs/:drugId/image            controllers.ProductController.setImageToDrug(drugId: String)
+# Service retrieves drugs by specified text. Search using text index by several field to recognize content
+# if the text index don't provide any result then service searches by word index (wrong spelled words)
+POST    /drugs/fuzzySearch              controllers.ProductController.combinedSearchDrugsProducts
+
+# Service retrieves list all recommended products (drugs)
+POST    /drugs/recom                    controllers.ProductController.findRecommended
+# Service adds drug to recommended list
+POST    /drugs/recom/add                controllers.ProductController.addRecommended(drugId: String, orderNum: Int)
+# Service removes drug from recommended list
+POST    /drugs/recom/rm                 controllers.ProductController.removeRecommended(drugId: String)
 
 # Map static resources from the /public folder to the /assets URL path
-GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
+GET     /assets/*file                   controllers.Assets.versioned(path="/public", file: Asset)

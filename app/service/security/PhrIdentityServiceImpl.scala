@@ -40,4 +40,14 @@ class PhrIdentityServiceImpl @Inject()(userService: PhrUserService)(implicit ec:
           roles = None))
     }
   }
+
+  /**
+    * Retrieves user that matches the specified name
+    *
+    * @param loginInfo The login info contained name to retrieve a user
+    * @return The retrieved user or None if no user could be retrieved for the given  name
+    */
+  override def retrieveByName(loginInfo: LoginInfo) = {
+    userService.find(loginInfo)
+  }
 }
