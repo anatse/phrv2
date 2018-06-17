@@ -15,6 +15,7 @@ lazy val root = (project in file("."))
     resolvers ++= Seq (
       "Atlassian Releases" at "https://maven.atlassian.com/public/"
     ),
+    PlayKeys.devSettings += "play.server.provider" -> "play.core.server.AkkaHttpServerProvider",
     libraryDependencies ++= Seq (
       guice,
       filters,
@@ -44,10 +45,26 @@ lazy val root = (project in file("."))
       "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion,
       "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonVersion,
 
+      // HTML Parser
+      "net.ruippeixotog" %% "scala-scraper" % "2.1.0",
+
+      /*
+      * Test libraries
+       */
       "de.flapdoodle.embed" % "de.flapdoodle.embed.mongo" % "2.0.0" % Test,
       "com.mohiva" %% "play-silhouette-testkit" % silhouetteVersion % "test",
       "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
       specs2 % Test
+    ),
+    javaOptions ++= Seq(
+      "-Dhttp.port=disabled",
+      "-Dhttps.port=9443",
+      "-Djdk.tls.ephemeralDHKeySize=2048",
+      "-Djdk.tls.rejectClientInitiatedRenegotiation=true",
+      "-Djava.security.properties=disabledAlgorithms.properties",
+      "-Dcom.sun.net.ssl.rsaPreMasterSecretFix=true",
+      "-Dsun.security.ssl.allowUnsafeRenegotiation=false",
+      "-Dsun.security.ssl.allowLegacyHelloMessages=false"
     )
   )
   .enablePlugins(PlayScala, PlayAkkaHttp2Support, JavaAppPackaging)
