@@ -1,29 +1,24 @@
 package actors
 
-import java.io.{BufferedInputStream, FileOutputStream, InputStream}
+import java.io.InputStream
 import java.net.{HttpURLConnection, URL}
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.zip.{GZIPInputStream, ZipEntry, ZipInputStream}
+import java.util.zip.{ZipEntry, ZipInputStream}
 
-import akka.NotUsed
 import akka.actor.{Actor, Props}
-import akka.dispatch.Futures
 import akka.event.Logging
 import akka.routing.{ActorRefRoutee, RoundRobinRoutingLogic, Router}
 import javax.inject.Inject
-import model.DrugExcelRecord
+import model.{DrugExcelRecord, DrugsFindRq}
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
+import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
+import net.ruippeixotog.scalascraper.dsl.DSL._
+import org.apache.poi.ss.usermodel.{Row, WorkbookFactory}
 import play.api.Configuration
 import service.{DrugImportService, DrugService}
 import utils.PhrLogger
-import net.ruippeixotog.scalascraper.dsl.DSL._
-import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
-import org.apache.poi.ss.usermodel.{Cell, CellType, Row, WorkbookFactory}
 
 import scala.concurrent.{Await, Future}
 import scala.util.Try
-import model.DrugsFindRq
 
 class LoadRls @Inject() (configuration: Configuration, drugImportService: DrugImportService, drugService: DrugService) extends Actor with PhrLogger {
   val log = Logging(context.system, this)
@@ -49,6 +44,7 @@ class LoadRls @Inject() (configuration: Configuration, drugImportService: DrugIm
 
   private final def loadExcel = {
     import context.dispatcher
+
     import concurrent.duration._
     import scala.collection.JavaConverters._
 
