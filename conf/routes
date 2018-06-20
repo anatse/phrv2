@@ -5,6 +5,9 @@
 
 # An example controller showing a sample home page
 GET     /                               controllers.HomeController.index
+GET     /drug                           controllers.HomeController.loadExcelFromRozminzdrav
+GET     /all                            controllers.HomeController.getAllDrugs
+GET     /connect                        controllers.HomeController.findGroup(drugName: String)
 
 # Authenticate user. Service give JWT token in response
 GET     /auth                           controllers.SecurityController.auth(userName: String, password: String)

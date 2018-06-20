@@ -48,12 +48,23 @@ lazy val root = (project in file("."))
       // HTML Parser
       "net.ruippeixotog" %% "scala-scraper" % "2.1.0",
 
-      /*
-      * Test libraries
-       */
+      // Apache POI
+      "org.apache.poi" % "poi" % "3.17",
+      "org.apache.poi" % "poi-ooxml" % "3.17",
+
+      // Akka stream
+      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+
+      // Selenium for rosminzdrav
+      "org.seleniumhq.selenium" % "selenium-java" % "3.12.0",
+
+        /*
+        * Test libraries
+         */
       "de.flapdoodle.embed" % "de.flapdoodle.embed.mongo" % "2.0.0" % Test,
-      "com.mohiva" %% "play-silhouette-testkit" % silhouetteVersion % "test",
+      "com.mohiva" %% "play-silhouette-testkit" % silhouetteVersion % Test,
       "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
+      "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
       specs2 % Test
     ),
     javaOptions ++= Seq(
@@ -65,6 +76,10 @@ lazy val root = (project in file("."))
       "-Dcom.sun.net.ssl.rsaPreMasterSecretFix=true",
       "-Dsun.security.ssl.allowUnsafeRenegotiation=false",
       "-Dsun.security.ssl.allowLegacyHelloMessages=false"
+    ),
+    scalacOptions ++= Seq(
+      "-unchecked",
+      "-deprecation"
     )
   )
   .enablePlugins(PlayScala, PlayAkkaHttp2Support, JavaAppPackaging)

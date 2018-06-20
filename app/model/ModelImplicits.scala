@@ -23,6 +23,9 @@ object ModelImplicits {
   implicit val readUpsertRes = Json.reads[UpsertRes]
   implicit val writeUpsertRes = Json.writes[UpsertRes]
 
+  implicit val readDrugExcel = Json.reads[DrugExcelRecord]
+  implicit val writeDrugExcel = Json.writes[DrugExcelRecord]
+
   def makeResult (rows:List[DrugsProduct], realPageSize:Int, offset:Int) = {
     val filterredRows = if (rows.length > realPageSize) rows.dropRight(1) else rows
     Ok(Json.obj("rows" -> filterredRows, "pageSize" -> realPageSize, "offset" -> offset, "hasMore" -> (rows.length > realPageSize)))
