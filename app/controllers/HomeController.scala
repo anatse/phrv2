@@ -1,10 +1,12 @@
 package controllers
 
-import actors.{ConnectDrug, LoadDrug, LoadFromSite}
-import akka.actor.ActorRef
+import actors.{ConnectDrug, LoadFromSite}
+import akka.actor.{ActorRef, ActorSystem}
+import akka.stream.Materializer
+import controllers.ws.LoaderActor
 import javax.inject._
-import play.api._
 import play.api.libs.json.Json
+import play.api.libs.streams.ActorFlow
 import play.api.mvc._
 import service.DrugImportService
 
@@ -15,9 +17,11 @@ import scala.concurrent.{ExecutionContext, Future}
  * application's home page.
  */
 @Singleton
-class HomeController @Inject()(cc: ControllerComponents, @Named("load-rls-actor")loadRls: ActorRef, drugImportService: DrugImportService)(implicit ex: ExecutionContext) extends AbstractController(cc) {
+class HomeController @Inject()(cc: ControllerComponents, @Named("load-rls-actor")loadRls: ActorRef, drugImportService: DrugImportService)
+                              (implicit ex: ExecutionContext, system: ActorSystem, mat: Materializer) extends AbstractController(cc) {
   import model.ModelImplicits._
-//  import scala.concurrent.ExecutionContext.Implicits.global
+
+  var wsobserver:Option[ActorRef] = None
 
   /**
    * Create an Action to render an HTML page.
@@ -31,7 +35,7 @@ class HomeController @Inject()(cc: ControllerComponents, @Named("load-rls-actor"
   }
 
   def loadExcelFromRozminzdrav = Action.async {  implicit request =>
-    loadRls ! LoadFromSite
+    loadRls ! LoadFromSite(wsobserver)
     Future.successful(Ok("loading started"))
   }
 
@@ -44,5 +48,15 @@ class HomeController @Inject()(cc: ControllerComponents, @Named("load-rls-actor"
   def findGroup(drugName: String) =  Action.async { implicit request =>
     loadRls ! ConnectDrug (drugName)
     Future.successful(Ok("Message sent"))
+  }
+
+  /**
+    * Web socket handler. May be tested with https://www.websocket.org/echo.html
+    * @return
+    */
+  def socket = WebSocket.accept[String, String] { request =>
+    ActorFlow.actorRef { out =>
+      LoaderActor.props(out, loadRls)
+    }
   }
 }

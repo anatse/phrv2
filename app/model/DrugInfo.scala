@@ -3,19 +3,19 @@ package model
 import java.util.Date
 
 case class DrugExcelRecord (
-  regNum: String,
+  regNum: Option[String],
   regDate: Option[Long],
   regExpiredDate: Option[Long],
   regInvalidDate: Option[Long],
-  regOwner: String,
-  regCountry: String,
-  tradeName: String,
-  mnn: String,
-  forms: String,
-  prodStage: String,
-  barCodes: String,
-  normDocs: String,
-  group: String
+  regOwner: Option[String],
+  regCountry: Option[String],
+  tradeName: Option[String],
+  mnn: Option[String],
+  forms: Option[String],
+  prodStage: Option[String],
+  barCodes: Option[String],
+  normDocs: Option[String],
+  group: Option[String]
 )
 
 case class DrugInfo(

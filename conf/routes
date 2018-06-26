@@ -8,6 +8,7 @@ GET     /                               controllers.HomeController.index
 GET     /drug                           controllers.HomeController.loadExcelFromRozminzdrav
 GET     /all                            controllers.HomeController.getAllDrugs
 GET     /connect                        controllers.HomeController.findGroup(drugName: String)
+GET     /ws                             controllers.HomeController.socket
 
 # Authenticate user. Service give JWT token in response
 GET     /auth                           controllers.SecurityController.auth(userName: String, password: String)

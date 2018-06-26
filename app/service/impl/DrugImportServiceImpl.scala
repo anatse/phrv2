@@ -21,9 +21,7 @@ class DrugImportServiceImpl @Inject() (val mongoApi: ReactiveMongoApi, @NamedCac
       val bulkDocs = entities.map(implicitly[col.ImplicitlyDocumentProducer](_))
       col.insert[DrugExcelRecord](ordered = true).many(entities)
     }
-  ).recover {
-    case ex => logger.error(ex.toString, ex)
-  }.map(_ => {})
+  ).map(_ => {})
 
   override def findAll: Future[List[DrugExcelRecord]] = drugExcelCollection.flatMap(
     _.find(document()).cursor[DrugExcelRecord]()
@@ -32,7 +30,7 @@ class DrugImportServiceImpl @Inject() (val mongoApi: ReactiveMongoApi, @NamedCac
 
   override def clearCollection: Future[Unit] = drugExcelCollection.flatMap(_.remove(document()).map(_ => {}))
 
-  override def findByName(drugName: String): Future[Option[DrugExcelRecord]] = drugExcelCollection.flatMap(
+  override def findByName(drugName: String): Future[Option[DrugExcelRecord]] = drugExcelCollection.flatMap (
     _.find(document("tradeName" -> document("$regex" -> s"${drugName}.*", "$options" -> "i")))
       .one[DrugExcelRecord]
   )

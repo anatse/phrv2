@@ -4,7 +4,7 @@ import java.io.InputStream
 import java.net.{HttpURLConnection, URL}
 import java.util.zip.{ZipEntry, ZipInputStream}
 
-import akka.actor.{Actor, Props}
+import akka.actor.{Actor, ActorRef, Props}
 import akka.event.Logging
 import akka.routing.{ActorRefRoutee, RoundRobinRoutingLogic, Router}
 import javax.inject.Inject
@@ -42,28 +42,42 @@ class LoadRls @Inject() (configuration: Configuration, drugImportService: DrugIm
 
   import RlsUtils._
 
-  private final def loadExcel = {
+  private final def loadExcel(observer: Option[ActorRef]) = {
     import context.dispatcher
 
     import concurrent.duration._
     import scala.collection.JavaConverters._
 
+    observer.map(_ ! LoadedDrug("Loading..."))
+
     val browser = JsoupBrowser()
     val doc = browser.get(rosminzdrav)
     val excelLink = doc >> element ("#ctl00_plate_tdzip a") attr ("href")
+
+    observer.map(_ ! LoadedDrug(s"excel link: ${excelLink}"))
+
     val url = new URL(baseRmUrl + excelLink)
     Try {
         val excelFileStream = url.openConnection().asInstanceOf[HttpURLConnection].getInputStream
         val zis = new ZipInputStream(excelFileStream)
         var ze: ZipEntry = zis.getNextEntry()
+
         if (ze != null) {
+          observer.map(_ ! LoadedDrug(s"zip file: ${ze.getName}"))
+
           val wb = WorkbookFactory.create(zis)
           val sheet = wb.getSheet("grls2")
 
+          observer.map(_ ! LoadedDrug(s"Trying to remove all drugs info..."))
+
           Await.result(drugImportService.clearCollection, 10 second)
 
+          observer.map(_ ! LoadedDrug(s"Removed"))
+
           val rowIterator: List[Row] = sheet.rowIterator().asScala.toList
-          val futures = rowIterator.filter(_.getRowNum > 1).map { row =>
+          observer.map(_ ! LoadedDrug(s"Start reading excel..."))
+
+          rowIterator.filter(_.getRowNum > 1).map { row =>
             val drugRecord = DrugExcelRecord(
               regNum = row.getString(REG_NUM),
               regDate = row.getDate(REG_DATE).getOptionTime,
@@ -80,14 +94,16 @@ class LoadRls @Inject() (configuration: Configuration, drugImportService: DrugIm
               group = row.getString(GROUP)
             )
 
-            drugImportService.bulkSaveExcelRecords(List(drugRecord))
+            // send information to observer
+            observer.foreach(_ ! LoadedDrug(drugRecord.tradeName.getOrElse("<Empty>")))
+            Await.result(drugImportService.bulkSaveExcelRecords(List(drugRecord)), 1 second)
           }
 
           wb.close()
-          Await.result(Future.sequence(futures), 30 second)
         }
     }.recover {
-      case ex => logger.error(ex.toString, ex)
+      case ex => ex.printStackTrace()
+        logger.error(ex.toString, ex)
     }
   }
 
@@ -99,7 +115,7 @@ class LoadRls @Inject() (configuration: Configuration, drugImportService: DrugIm
         Future.sequence(res.map { drug =>
           val text = drug.drugsFullName.split(" ")
           drugImportService.findByName(text(0)).map {
-            case Some(di) => drug.copy(drugGroups = Some(Array(di.group)))
+            case Some(di) => drug.copy(drugGroups = Some(Array(di.group.get)))
             case _ => drug
           }
         })
@@ -109,7 +125,7 @@ class LoadRls @Inject() (configuration: Configuration, drugImportService: DrugIm
   override def receive: Receive = {
     case LoadDrug(drugName) =>
 
-    case LoadFromSite => loadExcel // Load excel file into Source stream
+    case LoadFromSite(observer) => loadExcel(observer) // Load excel file into Source stream
 
     case ConnectDrug(drugName) => connectDrug(drugName) // Add groups from drugexcel to drug
   }

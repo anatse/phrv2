@@ -1,9 +1,13 @@
 import sbt.Keys.libraryDependencies
 
 name := """phrv2"""
-organization := "org.asem"
-
+organization := "PharmRus"
 version := "1.0-SNAPSHOT"
+maintainer := "Anatoly Sementsov <anatolse@gmail.com>"
+packageSummary := "Pharmrus play2.6 server for pharmacy"
+packageDescription := """Pharmrus play2.6 server for pharmacy"""
+rpmVendor := "pharmrus"
+rpmLicense := Some("Apache License")
 
 val silhouetteVersion = "5.0.5"
 val akkaVersion = "2.5.13"
@@ -11,6 +15,8 @@ val jacksonVersion = "2.+"
 
 lazy val root = (project in file("."))
   .settings (
+    antPackagerTasks in JDKPackager := Some(file("/usr/java/jdk1.8.0_172-amd64/lib/ant-javafx.jar")),
+    name in Linux := name.value,
     scalaVersion := "2.12.6",
     resolvers ++= Seq (
       "Atlassian Releases" at "https://maven.atlassian.com/public/"
@@ -67,6 +73,16 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
       specs2 % Test
     ),
+    jdkPackagerJVMArgs := Seq(
+      "-Dhttp.port=disabled",
+      "-Dhttps.port=9443",
+      "-Djdk.tls.ephemeralDHKeySize=2048",
+      "-Djdk.tls.rejectClientInitiatedRenegotiation=true",
+      "-Djava.security.properties=disabledAlgorithms.properties",
+      "-Dcom.sun.net.ssl.rsaPreMasterSecretFix=true",
+      "-Dsun.security.ssl.allowUnsafeRenegotiation=false",
+      "-Dsun.security.ssl.allowLegacyHelloMessages=false"
+    ),
     javaOptions ++= Seq(
       "-Dhttp.port=disabled",
       "-Dhttps.port=9443",
@@ -79,10 +95,11 @@ lazy val root = (project in file("."))
     ),
     scalacOptions ++= Seq(
       "-unchecked",
-      "-deprecation"
+      "-deprecation",
+      "-target:jvm-1.8"
     )
   )
-  .enablePlugins(PlayScala, PlayAkkaHttp2Support, JavaAppPackaging)
+  .enablePlugins(PlayScala, PlayAkkaHttp2Support, JavaAppPackaging, LinuxPlugin, RpmPlugin, JDKPackagerPlugin)
 
 
 // Adds additional packages into Twirl

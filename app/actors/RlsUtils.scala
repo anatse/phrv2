@@ -30,15 +30,15 @@ object RlsUtils {
   implicit class RowlUtils (row: Row) {
     val format = new SimpleDateFormat("dd.MM.yyyy")
 
-    def getString (cellNum: Field): String = {
+    def getString (cellNum: Field): Option[String] = {
       row.getCell(cellNum.index) match {
         case cel:Cell => cel.getCellTypeEnum match {
-          case CellType.STRING => cel.getStringCellValue
-          case CellType.BOOLEAN => cel.getBooleanCellValue.toString
-          case CellType.NUMERIC => cel.getNumericCellValue.intValue().toString
-          case _ => null
+          case CellType.STRING => Some(cel.getStringCellValue)
+          case CellType.BOOLEAN => Some(cel.getBooleanCellValue.toString)
+          case CellType.NUMERIC => Some(cel.getNumericCellValue.intValue().toString)
+          case _ => None
         }
-        case _ => null
+        case _ => None
       }
     }
 
